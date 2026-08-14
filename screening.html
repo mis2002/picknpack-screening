@@ -251,7 +251,14 @@ function uploadRecording(){
   var blob = new Blob(recordedChunks, { type: (mediaRecorder.mimeType || 'video/webm') });
   var reader = new FileReader();
   reader.onloadend = function(){
-    var base64 = reader.result.split(',')[1];
+    // IMPORTANT: do NOT use reader.result.split(',')[1] here — on iOS/Safari,
+    // the blob's mimeType can itself contain a comma (e.g.
+    // video/mp4;codecs="avc1.xxxx, mp4a.xxxx"), which breaks a naive split
+    // and corrupts the base64 payload (causing "Could not decode string" on
+    // the server). Find the actual ";base64," marker instead.
+    var marker = ';base64,';
+    var idx = reader.result.indexOf(marker);
+    var base64 = reader.result.substring(idx + marker.length);
     var durationUsed = q.recordingLimit - Math.max(secondsLeft,0);
     fetch(APPS_SCRIPT_URL, {
       method: 'POST',
