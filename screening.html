@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>PicknPack — Video Screening</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Serif+Display&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--blue:#0d47a1;--blue-light:#1565c0;--blue-pale:#e8eeff;--green:#2e7d32;--red:#b71c1c;
+  --text:#1a1a2e;--sub:#555;--muted:#888;--border:#e0e0e0;--bg:#f0f2f5;--white:#fff;--radius:10px;--shadow:0 2px 8px rgba(0,0,0,.10)}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.page{max-width:640px;margin:0 auto;padding:28px 16px 80px}
+.card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:14px}
+.card-topbar{height:8px;background:var(--blue)}
+.card-body{padding:24px 26px 22px}
+.display-font{font-family:'DM Serif Display',serif}
+.brand-tag{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px}
+.section{display:none}.section.active{display:block}
+.q-progress{font-size:13px;color:var(--blue);font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:10px}
+.q-text{font-size:19px;font-weight:600;line-height:1.5;margin-bottom:14px}
+.q-hint{font-size:14px;color:var(--sub);margin-bottom:20px}
+.video-wrap{background:#000;border-radius:10px;overflow:hidden;aspect-ratio:4/3;max-width:420px;margin:0 auto 18px;position:relative}
+video{width:100%;height:100%;object-fit:cover;display:block}
+.rec-badge{position:absolute;top:12px;left:12px;background:rgba(183,28,28,.9);color:#fff;font-size:12px;font-weight:700;
+  padding:4px 10px;border-radius:20px;display:none;align-items:center;gap:6px}
+.rec-badge.show{display:flex}
+.rec-dot{width:8px;height:8px;border-radius:50%;background:#fff;animation:blink 1s infinite}
+.timer-display{position:absolute;bottom:12px;right:12px;background:rgba(0,0,0,.6);color:#fff;font-size:20px;font-weight:700;
+  padding:4px 12px;border-radius:8px;font-variant-numeric:tabular-nums;display:none}
+.timer-display.show{display:block}
+.btn-primary{background:var(--blue);color:#fff;border:none;border-radius:6px;padding:13px 28px;font-size:15px;font-weight:600;
+  font-family:inherit;cursor:pointer;width:100%}
+.btn-primary:hover{background:var(--blue-light)}
+.btn-primary.red{background:var(--red)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.status-row{display:flex;justify-content:center;gap:18px;margin-bottom:16px;font-size:13px;color:var(--muted)}
+.status-row span{display:flex;align-items:center;gap:6px}
+.dot-ok{width:8px;height:8px;border-radius:50%;background:var(--green)}
+.dot-bad{width:8px;height:8px;border-radius:50%;background:var(--red)}
+.info-banner{background:var(--blue-pale);border-left:4px solid var(--blue);border-radius:6px;padding:12px 16px;font-size:14px;
+  color:var(--blue);margin-bottom:16px;line-height:1.6}
+.error-box{text-align:center;padding:60px 20px}
+.error-box .icon{font-size:48px;margin-bottom:16px}
+.thankyou-icon{width:72px;height:72px;border-radius:50%;background:#e8f5e9;display:flex;align-items:center;justify-content:center;
+  margin:0 auto 20px;font-size:34px}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.uploading{text-align:center;padding:16px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="sec-loading" class="section active">
+  <div class="page"><div style="text-align:center;padding:80px 20px;color:var(--muted)">Loading…</div></div>
+</div>
+
+<!-- ERROR -->
+<div id="sec-error" class="section">
+  <div class="page">
+    <div class="card"><div class="card-body error-box">
+      <div class="icon">⚠️</div>
+      <h2 class="display-font" style="font-size:24px;margin-bottom:10px">Link Issue</h2>
+      <p style="color:var(--sub)" id="error-msg">This link is not valid.</p>
+    </div></div>
+  </div>
+</div>
+
+<!-- PERMISSION / SETUP -->
+<div id="sec-setup" class="section">
+  <div class="page">
+    <div class="card"><div class="card-topbar"></div>
+      <div class="card-body">
+        <div class="brand-tag">PicknPack Solutions India</div>
+        <h1 class="display-font" style="font-size:25px;margin-bottom:10px" id="setup-title">Video Screening</h1>
+        <p style="font-size:14px;color:var(--sub);line-height:1.65" id="setup-sub">Welcome, <strong id="setup-name"></strong>! This screening uses your camera and microphone. Please allow access when your browser asks.</p>
+      </div>
+    </div>
+    <div class="info-banner">⚠️ Make sure you're in a quiet, well-lit place. You'll see each question before recording starts — recording only begins once you click "Start Recording".</div>
+    <div class="status-row">
+      <span><span class="dot-bad" id="cam-dot"></span> Camera: <span id="cam-status">checking…</span></span>
+      <span><span class="dot-bad" id="mic-dot"></span> Microphone: <span id="mic-status">checking…</span></span>
+    </div>
+    <button class="btn-primary" id="btn-enable" onclick="requestPermissions()">Enable Camera &amp; Microphone →</button>
+  </div>
+</div>
+
+<!-- QUESTION / RECORDING -->
+<div id="sec-question" class="section">
+  <div class="page">
+    <div class="card"><div class="card-body">
+      <div class="q-progress" id="q-progress">Question 1 of 1</div>
+      <div class="q-text" id="q-text">Question text here</div>
+      <div class="q-hint" id="q-hint">You have up to 60 seconds to answer.</div>
+      <div class="video-wrap">
+        <video id="preview" autoplay muted playsinline></video>
+        <div class="rec-badge" id="rec-badge"><div class="rec-dot"></div> Recording</div>
+        <div class="timer-display" id="timer-display">00:60</div>
+      </div>
+      <button class="btn-primary" id="btn-start" onclick="startRecording()">● Start Recording</button>
+      <button class="btn-primary red" id="btn-stop" style="display:none" onclick="stopRecording()">■ Stop &amp; Submit</button>
+    </div></div>
+    <div class="uploading" id="uploading-msg" style="display:none">Saving your answer…</div>
+  </div>
+</div>
+
+<!-- ANSWER SAVED (between questions) -->
+<div id="sec-saved" class="section">
+  <div class="page">
+    <div class="card"><div class="card-body" style="padding:40px 26px;text-align:center">
+      <div class="thankyou-icon">✅</div>
+      <h2 class="display-font" style="font-size:22px;margin-bottom:10px">Answer recorded successfully.</h2>
+      <button class="btn-primary" onclick="goToNextQuestion()" style="max-width:220px;margin:0 auto">Continue →</button>
+    </div></div>
+  </div>
+</div>
+
+<!-- ALL DONE -->
+<div id="sec-done" class="section">
+  <div class="page">
+    <div class="card"><div class="card-topbar"></div>
+      <div class="card-body" style="padding:44px 30px;text-align:center">
+        <div class="thankyou-icon">🎉</div>
+        <h2 class="display-font" style="font-size:26px;margin-bottom:10px">Screening Complete!</h2>
+        <p style="font-size:15px;color:var(--sub);line-height:1.7">
+          Thank you, <strong id="done-name"></strong>! Your video responses have been recorded and saved. Our HR team will review them and get back to you.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// IMPORTANT: this is your Apps Script Web App /exec URL.
+// If you ever redeploy a brand-new deployment (not just "New version"),
+// double-check this still matches Deploy → Manage deployments → Web app URL.
+// ══════════════════════════════════════════════════════════════
+var APPS_SCRIPT_URL = 'https://script.google.com/a/macros/picknpack.co/s/AKfycbzxzF-rAkOoyfaDHPinkSVWxwlAyT6o4sPgE0zBvCobZKdDfBn6rUdo3kFNiy0Vom51Lg/exec';
+
+var currentToken=null, currentStage=null, questions=[], qIdx=0;
+var mediaStream=null, mediaRecorder=null, recordedChunks=[], recTimer=null, secondsLeft=0;
+var candidateName='';
+
+function show(id){document.querySelectorAll('.section').forEach(function(s){s.classList.remove('active');});document.getElementById('sec-'+id).classList.add('active');}
+function esc(s){return String(s||'');}
+function fmt(s){return '00:'+String(s).padStart(2,'0');}
+
+// ── Boot: read token/stage from this page's own URL (plain query string, no Apps Script API needed) ──
+(function boot(){
+  var params = new URLSearchParams(window.location.search);
+  var token = params.get('token');
+  var stage = params.get('stage');
+  if (!token || !stage) { showError('This link is missing information. Please use the exact link HR sent you.'); return; }
+  currentToken = token; currentStage = stage;
+  fetch(APPS_SCRIPT_URL + '?action=getStageInfo&token=' + encodeURIComponent(token) + '&stage=' + encodeURIComponent(stage))
+    .then(function(r){ return r.json(); })
+    .then(handleStageInfo)
+    .catch(function(e){ showError('Network error: ' + e.message); });
+})();
+
+function showError(msg){ document.getElementById('error-msg').textContent = msg || 'Something went wrong.'; show('error'); }
+
+function handleStageInfo(res){
+  if (res.error) { showError(res.error); return; }
+  questions = res.questions || [];
+  candidateName = res.name || '';
+  if (!questions.length) { showError('No questions are available for this screening yet.'); return; }
+  document.getElementById('setup-name').textContent = candidateName;
+  document.getElementById('setup-title').textContent = currentStage === 'ai_intro' ? 'Self Introduction Video' : 'Department Video Screening';
+  show('setup');
+}
+
+// ── Camera / mic setup ──
+function requestPermissions(){
+  document.getElementById('btn-enable').disabled = true;
+  document.getElementById('btn-enable').textContent = 'Requesting access…';
+  navigator.mediaDevices.getUserMedia({ video:true, audio:true }).then(function(stream){
+    mediaStream = stream;
+    document.getElementById('cam-dot').className = 'dot-ok';
+    document.getElementById('cam-status').textContent = 'Ready';
+    document.getElementById('mic-dot').className = 'dot-ok';
+    document.getElementById('mic-status').textContent = 'Ready';
+    qIdx = 0;
+    renderQuestion();
+    show('question');
+  }).catch(function(err){
+    document.getElementById('btn-enable').disabled = false;
+    document.getElementById('btn-enable').textContent = 'Enable Camera & Microphone →';
+    alert('Camera/Microphone access is required to continue. Please allow access in your browser and try again.\n\n('+err.message+')');
+  });
+}
+
+// ── Question flow ──
+function renderQuestion(){
+  var q = questions[qIdx];
+  document.getElementById('q-progress').textContent = 'Question '+(qIdx+1)+' of '+questions.length;
+  document.getElementById('q-text').textContent = q.text;
+  document.getElementById('q-hint').textContent = 'You have up to '+q.recordingLimit+' seconds to answer. Recording will not start until you click the button below.';
+  document.getElementById('timer-display').textContent = fmt(q.recordingLimit);
+  document.getElementById('timer-display').classList.remove('show');
+  document.getElementById('rec-badge').classList.remove('show');
+  document.getElementById('btn-start').style.display = 'block';
+  document.getElementById('btn-start').disabled = false;
+  document.getElementById('btn-start').textContent = '● Start Recording';
+  document.getElementById('btn-stop').style.display = 'none';
+  document.getElementById('uploading-msg').style.display = 'none';
+  var preview = document.getElementById('preview');
+  preview.srcObject = mediaStream;
+}
+
+function startRecording(){
+  var q = questions[qIdx];
+  recordedChunks = [];
+  var mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus'
+    : MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : '';
+  try {
+    mediaRecorder = mimeType ? new MediaRecorder(mediaStream, {mimeType:mimeType}) : new MediaRecorder(mediaStream);
+  } catch(e) {
+    alert('Recording is not supported in this browser. Please try Chrome or Edge.');
+    return;
+  }
+  mediaRecorder.ondataavailable = function(e){ if (e.data && e.data.size > 0) recordedChunks.push(e.data); };
+  mediaRecorder.onstop = function(){ uploadRecording(); };
+  mediaRecorder.start();
+
+  document.getElementById('btn-start').style.display = 'none';
+  document.getElementById('btn-stop').style.display = 'block';
+  document.getElementById('rec-badge').classList.add('show');
+  document.getElementById('timer-display').classList.add('show');
+
+  secondsLeft = q.recordingLimit;
+  document.getElementById('timer-display').textContent = fmt(secondsLeft);
+  recTimer = setInterval(function(){
+    secondsLeft--;
+    document.getElementById('timer-display').textContent = fmt(Math.max(secondsLeft,0));
+    if (secondsLeft <= 0) { stopRecording(); }
+  }, 1000);
+}
+
+function stopRecording(){
+  if (recTimer) { clearInterval(recTimer); recTimer = null; }
+  document.getElementById('btn-stop').disabled = true;
+  document.getElementById('btn-stop').textContent = 'Saving…';
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+}
+
+function uploadRecording(){
+  document.getElementById('uploading-msg').style.display = 'block';
+  var q = questions[qIdx];
+  var blob = new Blob(recordedChunks, { type: (mediaRecorder.mimeType || 'video/webm') });
+  var reader = new FileReader();
+  reader.onloadend = function(){
+    var base64 = reader.result.split(',')[1];
+    var durationUsed = q.recordingLimit - Math.max(secondsLeft,0);
+    fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids a CORS preflight, which Apps Script doesn't handle
+      body: JSON.stringify({
+        action: 'saveScreeningVideo',
+        token: currentToken, stage: currentStage,
+        questionId: q.qid, questionText: q.text,
+        base64Data: base64, mimeType: blob.type, durationSec: durationUsed
+      })
+    }).then(function(r){ return r.json(); }).then(function(res){
+      document.getElementById('uploading-msg').style.display = 'none';
+      if (!res.success) { alert('Could not save your answer: ' + (res.error||'unknown error') + '. Please try again.'); renderQuestion(); return; }
+      show('saved');
+    }).catch(function(e){
+      document.getElementById('uploading-msg').style.display = 'none';
+      alert('Network error while saving: ' + e.message + '. Please try again.');
+      renderQuestion();
+    });
+  };
+  reader.readAsDataURL(blob);
+}
+
+function goToNextQuestion(){
+  qIdx++;
+  if (qIdx >= questions.length) {
+    if (mediaStream) mediaStream.getTracks().forEach(function(t){ t.stop(); });
+    document.getElementById('done-name').textContent = candidateName;
+    show('done');
+    return;
+  }
+  renderQuestion();
+  show('question');
+}
+</script>
+</body>
+</html>
