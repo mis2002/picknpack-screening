@@ -175,7 +175,13 @@ function handleStageInfo(res){
 function requestPermissions(){
   document.getElementById('btn-enable').disabled = true;
   document.getElementById('btn-enable').textContent = 'Requesting access…';
-  navigator.mediaDevices.getUserMedia({ video:true, audio:true }).then(function(stream){
+  // Lower resolution — a talking-head video doesn't need HD, and smaller
+  // files upload much faster (this is the biggest lever for speeding up
+  // the "Saving..." wait after recording).
+  navigator.mediaDevices.getUserMedia({
+    video: { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 24, max: 24 } },
+    audio: true
+  }).then(function(stream){
     mediaStream = stream;
     document.getElementById('cam-dot').className = 'dot-ok';
     document.getElementById('cam-status').textContent = 'Ready';
@@ -214,8 +220,12 @@ function startRecording(){
   recordedChunks = [];
   var mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus'
     : MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : '';
+  // Low bitrate — this is a talking-head interview answer, not a movie.
+  // Keeping the file small is what makes "Saving..." fast.
+  var recorderOptions = { videoBitsPerSecond: 350000, audioBitsPerSecond: 64000 };
+  if (mimeType) recorderOptions.mimeType = mimeType;
   try {
-    mediaRecorder = mimeType ? new MediaRecorder(mediaStream, {mimeType:mimeType}) : new MediaRecorder(mediaStream);
+    mediaRecorder = new MediaRecorder(mediaStream, recorderOptions);
   } catch(e) {
     alert('Recording is not supported in this browser. Please try Chrome or Edge.');
     return;
